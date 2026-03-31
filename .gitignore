@@ -1,0 +1,9 @@
+.build/
+.swiftpm/
+*.app
+Libraries/libvosk.dylib
+Libraries/vosk_stub.c
+Resources/vosk-model-small-ja-0.22/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
