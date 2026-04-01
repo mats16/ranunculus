@@ -19,8 +19,6 @@ struct RanunculusApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // アプリがバックグラウンドに行ってもオーバーレイを表示し続けるため
-        // アクティベーションポリシーを regular に設定
         NSApplication.shared.setActivationPolicy(.regular)
     }
 

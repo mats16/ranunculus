@@ -4,14 +4,20 @@ import CVosk
 /// VOSK C API の Swift ラッパー。スレッドセーフではないため、単一のシリアルキューからのみ使用すること。
 final class VoskWrapper: @unchecked Sendable {
 
-    /// スタブライブラリかどうかを判定する。
-    /// 存在しないパスでモデルロードを試み、成功すればスタブと判断する（本物は NULL を返す）。
+    /// スタブライブラリかどうかをファイルサイズで判定する。
+    /// 本物の libvosk.dylib は 10MB 以上、スタブは 100KB 未満。
     static func isStubLibrary() -> Bool {
-        vosk_set_log_level(-1)
-        let probePath = "/nonexistent_vosk_probe_\(ProcessInfo.processInfo.globallyUniqueString)"
-        if let probe = vosk_model_new(probePath) {
-            vosk_model_free(probe)
-            return true
+        let execURL = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
+        let candidates = [
+            execURL.appendingPathComponent("../Frameworks/libvosk.dylib").path,
+            execURL.appendingPathComponent("../../Libraries/libvosk.dylib").path,
+            "Libraries/libvosk.dylib",
+        ]
+        for path in candidates {
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+               let size = attrs[.size] as? UInt64 {
+                return size < 1_000_000  // 1MB 未満ならスタブ
+            }
         }
         return false
     }

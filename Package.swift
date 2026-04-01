@@ -12,9 +12,13 @@ let package = Package(
             path: "Sources/CVosk",
             publicHeadersPath: "include"
         ),
+        .binaryTarget(
+            name: "whisper",
+            path: "Frameworks/whisper.xcframework"
+        ),
         .executableTarget(
             name: "Ranunculus",
-            dependencies: ["CVosk"],
+            dependencies: ["CVosk", "whisper"],
             path: "Sources/Ranunculus",
             linkerSettings: [
                 .unsafeFlags(["-L", "Libraries", "-lvosk"]),

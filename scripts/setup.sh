@@ -5,6 +5,9 @@ PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 LIBRARIES_DIR="$PROJECT_DIR/Libraries"
 RESOURCES_DIR="$PROJECT_DIR/Resources"
 
+FRAMEWORKS_DIR="$PROJECT_DIR/Frameworks"
+WHISPER_CPP_VERSION="v1.8.4"
+
 echo "=== Ranunculus Setup ==="
 echo "Project directory: $PROJECT_DIR"
 echo ""
@@ -100,9 +103,48 @@ else
     echo "[OK] Model installed at $MODEL_DIR"
 fi
 
-# --- Step 3: Verify setup ---
+# --- Step 3: Download whisper.cpp XCFramework ---
+WHISPER_XCFW="$FRAMEWORKS_DIR/whisper.xcframework"
+
+if [ -d "$WHISPER_XCFW" ]; then
+    echo "[OK] whisper.xcframework already exists"
+else
+    echo "[3/4] Downloading whisper.cpp XCFramework ($WHISPER_CPP_VERSION)..."
+    mkdir -p "$FRAMEWORKS_DIR"
+    TMPDIR_WHISPER=$(mktemp -d)
+
+    curl -L -o "$TMPDIR_WHISPER/whisper-xcframework.zip" \
+        "https://github.com/ggml-org/whisper.cpp/releases/download/$WHISPER_CPP_VERSION/whisper-$WHISPER_CPP_VERSION-xcframework.zip"
+
+    unzip -q "$TMPDIR_WHISPER/whisper-xcframework.zip" -d "$TMPDIR_WHISPER/"
+    cp -R "$TMPDIR_WHISPER/build-apple/whisper.xcframework" "$FRAMEWORKS_DIR/"
+    rm -rf "$TMPDIR_WHISPER"
+
+    echo "[OK] whisper.xcframework installed"
+fi
+
+# --- Step 4: Download kotoba-whisper model ---
+WHISPER_MODEL="ggml-kotoba-whisper-v2.0-q5_0.bin"
+WHISPER_MODEL_PATH="$RESOURCES_DIR/$WHISPER_MODEL"
+
+if [ -f "$WHISPER_MODEL_PATH" ]; then
+    echo "[OK] Whisper model already exists at $WHISPER_MODEL_PATH"
+else
+    echo "[4/4] Downloading kotoba-whisper model ($WHISPER_MODEL)..."
+    curl -L -o "$WHISPER_MODEL_PATH" \
+        "https://huggingface.co/kotoba-tech/kotoba-whisper-v2.0-ggml/resolve/main/$WHISPER_MODEL"
+
+    if [ -f "$WHISPER_MODEL_PATH" ]; then
+        FILE_SIZE=$(stat -f%z "$WHISPER_MODEL_PATH")
+        echo "[OK] Whisper model installed ($(( FILE_SIZE / 1024 / 1024 ))MB)"
+    else
+        echo "[WARN] Whisper model download failed. App will run in VOSK-only mode."
+    fi
+fi
+
+# --- Verify setup ---
 echo ""
-echo "[3/3] Verifying setup..."
+echo "Verifying setup..."
 echo ""
 
 ERRORS=0
@@ -115,6 +157,15 @@ fi
 if [ ! -d "$MODEL_DIR" ]; then
     echo "[ERROR] VOSK model not found at $MODEL_DIR"
     ERRORS=$((ERRORS + 1))
+fi
+
+if [ ! -d "$WHISPER_XCFW" ]; then
+    echo "[ERROR] whisper.xcframework not found"
+    ERRORS=$((ERRORS + 1))
+fi
+
+if [ ! -f "$WHISPER_MODEL_PATH" ]; then
+    echo "[WARN] Whisper model not found (optional, VOSK-only mode available)"
 fi
 
 if [ $ERRORS -eq 0 ]; then

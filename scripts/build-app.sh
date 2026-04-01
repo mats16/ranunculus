@@ -65,6 +65,16 @@ else
     echo "[WARN] libvosk.dylib not found in Libraries/"
 fi
 
+# Copy whisper.framework from XCFramework
+WHISPER_FW="$PROJECT_DIR/Frameworks/whisper.xcframework/macos-arm64_x86_64/whisper.framework"
+if [ -d "$WHISPER_FW" ]; then
+    cp -R "$WHISPER_FW" "$APP_BUNDLE/Contents/Frameworks/"
+    codesign --force --sign - "$APP_BUNDLE/Contents/Frameworks/whisper.framework" 2>/dev/null || true
+    echo "[OK] whisper.framework copied to app bundle"
+else
+    echo "[WARN] whisper.framework not found (app will run in VOSK-only mode)"
+fi
+
 # Copy VOSK model
 MODEL_DIR="$PROJECT_DIR/Resources/vosk-model-small-ja-0.22"
 if [ -d "$MODEL_DIR" ]; then
@@ -72,6 +82,15 @@ if [ -d "$MODEL_DIR" ]; then
     echo "[OK] VOSK model copied to app bundle"
 else
     echo "[WARN] VOSK model not found at $MODEL_DIR"
+fi
+
+# Copy Whisper model
+WHISPER_MODEL="$PROJECT_DIR/Resources/ggml-kotoba-whisper-v2.0-q5_0.bin"
+if [ -f "$WHISPER_MODEL" ]; then
+    cp "$WHISPER_MODEL" "$APP_BUNDLE/Contents/Resources/"
+    echo "[OK] Whisper model copied to app bundle"
+else
+    echo "[WARN] Whisper model not found (app will run in VOSK-only mode)"
 fi
 
 # Step 4: Code sign the app

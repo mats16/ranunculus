@@ -19,7 +19,7 @@
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Ranunculus はリアルタイムの音声字幕表示のためにマイクへのアクセスが必要です。</string>
+    <string>会議の文字起こしのためにマイクへのアクセスが必要です。</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>LSUIElement</key>
