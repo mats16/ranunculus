@@ -124,14 +124,17 @@ final class CaptionViewModel: ObservableObject {
     @Published var isLoadingModel: Bool = false
     @Published var errorMessage: String?
     @Published var statusMessage: String = "モデル未読込"
+    @Published var audioSourceMode: AudioSourceMode = .both
 
     // MARK: - Private
 
     private var audioManager: AudioCaptureManager?
+    private var systemAudioManager: SystemAudioCaptureManager?
     private var audioProcessor: AudioProcessor?
     private var voskWrapper: VoskWrapper?
     private let whisperQueue = WhisperQueue()
     private var whisperService: WhisperService?
+    private var obsidianExporter: ObsidianExporter?
 
     private static let fileDateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -227,13 +230,10 @@ final class CaptionViewModel: ObservableObject {
             return
         }
 
-        let hasPermission = await AudioCaptureManager.requestMicrophonePermission()
-        guard hasPermission else {
-            errorMessage = AudioCaptureError.microphonePermissionDenied.localizedDescription
-            return
-        }
-
         store.recordingStartTime = Date()
+        obsidianExporter = ObsidianExporter(store: store) { [weak self] msg in
+            self?.errorMessage = msg
+        }
 
         let processor = AudioProcessor(vosk: vosk)
         processor.onFinalResult = { [weak self] info in
@@ -247,19 +247,25 @@ final class CaptionViewModel: ObservableObject {
 
         whisperService?.start()
 
-        let manager = AudioCaptureManager()
-        manager.onAudioData = { [processor] data in
-            processor.feedAudio(data)
-        }
-
         do {
-            try manager.startCapture()
-            self.audioManager = manager
+            switch audioSourceMode {
+            case .microphone:
+                try await startMicrophoneCapture(processor: processor)
+            case .systemAudio:
+                try await startSystemAudioCapture(processor: processor)
+            case .both:
+                try await startMicrophoneCapture(processor: processor)
+                try await startSystemAudioCapture(processor: processor)
+            }
             self.isListening = true
             self.statusMessage = "録音中..."
             self.errorMessage = nil
         } catch {
             self.errorMessage = error.localizedDescription
+            audioManager?.stopCapture()
+            audioManager = nil
+            systemAudioManager?.stopCapture()
+            systemAudioManager = nil
             self.audioProcessor = nil
             whisperService?.stop()
         }
@@ -268,6 +274,8 @@ final class CaptionViewModel: ObservableObject {
     func stopListening() {
         audioManager?.stopCapture()
         audioManager = nil
+        systemAudioManager?.stopCapture()
+        systemAudioManager = nil
         isListening = false
         statusMessage = "停止中..."
 
@@ -281,6 +289,8 @@ final class CaptionViewModel: ObservableObject {
 
             Task {
                 await self.whisperQueue.finish()
+                self.obsidianExporter?.stop()
+                self.obsidianExporter = nil
                 self.statusMessage = "停止"
             }
         }
@@ -289,6 +299,7 @@ final class CaptionViewModel: ObservableObject {
 
     func clearText() {
         store.clear()
+        obsidianExporter?.reset()
         Task { await whisperQueue.reset() }
     }
 
@@ -307,6 +318,43 @@ final class CaptionViewModel: ObservableObject {
     }
 
     // MARK: - Private Helpers
+
+    private func startMicrophoneCapture(processor: AudioProcessor) async throws {
+        let hasPermission = await AudioCaptureManager.requestMicrophonePermission()
+        guard hasPermission else {
+            throw AudioCaptureError.microphonePermissionDenied
+        }
+
+        let manager = AudioCaptureManager()
+        manager.onAudioData = { [processor] data in
+            processor.feedAudio(data)
+        }
+        try manager.startCapture()
+        self.audioManager = manager
+    }
+
+    private func startSystemAudioCapture(processor: AudioProcessor) async throws {
+        let hasPermission = await SystemAudioCaptureManager.requestPermission()
+        guard hasPermission else {
+            throw SystemAudioCaptureError.screenRecordingPermissionDenied
+        }
+
+        let manager = SystemAudioCaptureManager()
+        manager.onAudioData = { [processor] data in
+            processor.feedAudio(data)
+        }
+        manager.onStreamStopped = { [weak self] error in
+            DispatchQueue.main.async {
+                self?.errorMessage = error?.localizedDescription ?? "システム音声キャプチャが停止しました"
+                if self?.audioManager == nil {
+                    self?.isListening = false
+                    self?.statusMessage = "停止"
+                }
+            }
+        }
+        try await manager.startCapture()
+        self.systemAudioManager = manager
+    }
 
     private func commitSegment(_ info: FinalizedSegmentInfo) {
         let segment = TranscriptSegment(
