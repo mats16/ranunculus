@@ -1,0 +1,4 @@
+module CVosk {
+    header "vosk_api.h"
+    export *
+}

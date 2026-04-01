@@ -1,0 +1,11 @@
+.build/
+.swiftpm/
+*.app
+Libraries/libvosk.dylib
+Libraries/vosk_stub.c
+Frameworks/whisper.xcframework/
+Resources/vosk-model-small-ja-0.22/
+Resources/ggml-*.bin
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
