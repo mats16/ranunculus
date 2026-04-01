@@ -14,6 +14,10 @@ struct RanunculusApp: App {
                 }
         }
         .windowResizability(.contentMinSize)
+
+        Settings {
+            SettingsView()
+        }
     }
 }
 

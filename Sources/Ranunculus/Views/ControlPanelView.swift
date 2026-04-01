@@ -33,6 +33,19 @@ struct ControlPanelView: View {
                         .padding(.vertical, 2)
                         .background(viewModel.whisperModelLoaded ? Color.green.opacity(0.2) : Color.gray.opacity(0.2))
                         .cornerRadius(4)
+
+                    if AppSettings.shared.obsidianAutoSaveEnabled {
+                        HStack(spacing: 2) {
+                            Image(systemName: "doc.text")
+                                .font(.caption2)
+                            Text("Obsidian")
+                                .font(.caption2)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.purple.opacity(0.2))
+                        .cornerRadius(4)
+                    }
                 }
             }
 
@@ -44,12 +57,26 @@ struct ControlPanelView: View {
 
             Divider()
 
+            // 音声ソース選択
+            VStack(alignment: .leading, spacing: 4) {
+                Text("音声ソース")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Picker("音声ソース", selection: $viewModel.audioSourceMode) {
+                    ForEach(AudioSourceMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(viewModel.isListening)
+            }
+
             // コントロールボタン
             HStack(spacing: 16) {
                 // 録音開始/停止
                 Button(action: { viewModel.toggleListening() }) {
                     HStack(spacing: 8) {
-                        Image(systemName: viewModel.isListening ? "stop.circle.fill" : "record.circle")
+                        Image(systemName: viewModel.isListening ? "stop.circle.fill" : startButtonIcon)
                             .font(.title2)
                             .foregroundColor(viewModel.isListening ? .red : .accentColor)
                         Text(viewModel.isListening ? "停止" : "録音開始")
@@ -149,6 +176,17 @@ struct ControlPanelView: View {
         }
         .padding()
         .frame(minWidth: 700, minHeight: 500)
+    }
+
+    private var startButtonIcon: String {
+        switch viewModel.audioSourceMode {
+        case .microphone:
+            return "record.circle"
+        case .systemAudio:
+            return "speaker.wave.2.circle.fill"
+        case .both:
+            return "mic.and.signal.meter.fill"
+        }
     }
 
     private var statusColor: Color {
